@@ -16,11 +16,8 @@ import java.util.TimerTask;
 @DesignerComponent(
         version = 22,
         description = "Discord Bot Message Extension - Allows sending, editing, deleting, and monitoring messages on Discord.",
-        category = ComponentCategory.EXTENSION,
-        nonVisible = true,
         iconName = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
 )
-@UsesPermissions(permissionNames = "android.permission.INTERNET")
 public class DiscordText extends AndroidNonvisibleComponent {
     private String botToken = "";
     private final String BASE_URL = "https://discord.com/api/v10";
