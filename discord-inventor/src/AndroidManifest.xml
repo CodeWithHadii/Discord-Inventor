@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.bosonshiggs.discordinventor">
+
+  <!-- Permissions -->
+  <uses-permission android:name="android.permission.INTERNET"/>
+
+  <application>
+    <!-- Service placeholder if needed for future background tasks -->
+    <!-- <service android:name="com.bosonshiggs.discordinventor.MyService"/> -->
+  </application>
+
+</manifest>
+
