@@ -15,3 +15,4 @@
 # Keep SLF4J unmodified
 -keep class org.slf4j.** { *; }
 -keep interface org.slf4j.Logger { *; }
+-dontnote org.slf4j.helpers.SubstituteLogger
