@@ -17,8 +17,6 @@ import java.util.stream.Collectors;
 @DesignerComponent(
         version = 1,
         description = "Discord Moderation Extension - Provides tools for server moderation, including checking user permissions, roles, and more.",
-        category = ComponentCategory.EXTENSION,
-        nonVisible = true,
         iconName = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
 )
 public class DiscordModeration extends AndroidNonvisibleComponent {

@@ -23,11 +23,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 @DesignerComponent(
         version = 14,
         description = "Discord Channel Monitor Extension - Monitors Discord channels in real-time using WebSocket without exceeding API limits.",
-        category = ComponentCategory.EXTENSION,
-        nonVisible = true,
         iconName = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
 )
-@UsesPermissions(permissionNames = "android.permission.INTERNET")
 public class DiscordEvents extends AndroidNonvisibleComponent {
 	public static String sharedBotToken;
     private WebSocketClient webSocketClient;

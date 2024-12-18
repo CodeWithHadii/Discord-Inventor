@@ -19,14 +19,14 @@ desugar_dex: true
 
 # Default repositories are Maven Central, Google Maven, JCenter and JitPack.
 # If the library you want to use is not available in these repositories, add here by specifying their URLs.
-#repositories:
+# repositories:
 #  - https://repo1.maven.org/maven2/
 
 # Extension dependencies [JAR & AAR Should be present into deps directory]
 dependencies:
- - org.java-websocket:Java-WebSocket:1.5.3
- - org.slf4j:slf4j-simple:1.7.36
- - org.twitter4j:twitter4j-core:4.0.7
+- org.java-websocket:Java-WebSocket:1.5.3
+- org.slf4j:slf4j-simple:1.7.36
+- org.twitter4j:twitter4j-core:4.0.7
 
 # Define compile-time dependencies only [Remote only]
 # compile_time:
