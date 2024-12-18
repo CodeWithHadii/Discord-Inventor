@@ -1,11 +1,5 @@
 package com.bosonshiggs.discordinventor;
 
-import android.os.Handler;
-import android.os.Looper;
-import com.google.appinventor.components.annotations.*;
-import com.google.appinventor.components.common.*;
-import com.google.appinventor.components.runtime.*;
-import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,24 +8,33 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.stream.Collectors;
 
+import org.json.JSONObject;
+
+import android.os.Handler;
+import android.os.Looper;
+
+import com.google.appinventor.components.annotations.DesignerComponent;
+import com.google.appinventor.components.annotations.SimpleEvent;
+import com.google.appinventor.components.annotations.SimpleFunction;
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.EventDispatcher;
+
+
 @DesignerComponent(
-        version = 1,
-        description = "Discord Moderation Extension - Provides tools for server moderation, including checking user permissions, roles, and more.",
-        iconName = "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png"
+    version = 1, 
+    description = "Discord Moderation Extension - Provides tools for server moderation, including checking user permissions, roles, and more.", 
+    iconName = "icon.png",
+	helpUrl = "https://github.com/iagolirapasssos/Discord-Inventor"
 )
 public class DiscordModeration extends AndroidNonvisibleComponent {
-
+    private final TokenManager tokenManager;
     private final String BASE_URL = "https://discord.com/api/v10";
-    private String botToken = "";
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     public DiscordModeration(ComponentContainer container) {
         super(container.$form());
-    }
-
-    @SimpleProperty(description = "Sets the Discord Bot Token for authentication.")
-    public void SetBotToken(String token) {
-        this.botToken = token;
+        tokenManager = new TokenManager();
     }
 
     @SimpleFunction(description = "Checks if a user has a specific permission in a guild.")
@@ -41,7 +44,7 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                 URL url = new URL(BASE_URL + "/guilds/" + guildId + "/members/" + userId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.setRequestProperty("Authorization", "Bot " + botToken);
+                conn.setRequestProperty("Authorization", "Bot " + tokenManager.getBotToken(form.getApplicationContext()));
 
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 200) {
@@ -59,12 +62,13 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                     }
 
                     boolean finalHasPermission = hasPermission;
-                    uiHandler.post(() -> OnResponse(tag, "User has permission: " + finalHasPermission));
+                    uiHandler.post(() -> Response(tag, "User has permission: " + finalHasPermission));
                 } else {
-                    uiHandler.post(() -> OnError(tag, "Failed to fetch user permissions. Response Code: " + responseCode));
+                    uiHandler.post(
+                            () -> Error(tag, "Failed to fetch user permissions. Response Code: " + responseCode));
                 }
             } catch (Exception e) {
-                uiHandler.post(() -> OnError(tag, "Error: " + e.getMessage()));
+                uiHandler.post(() -> Error(tag, "Error: " + e.getMessage()));
             }
         }).start();
     }
@@ -76,7 +80,7 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                 URL url = new URL(BASE_URL + "/guilds/" + guildId + "/members/" + userId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.setRequestProperty("Authorization", "Bot " + botToken);
+                conn.setRequestProperty("Authorization", "Bot " + tokenManager.getBotToken(form.getApplicationContext()));
 
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 200) {
@@ -85,12 +89,13 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                     boolean isAdmin = data.getBoolean("is_admin");
                     boolean isOwner = data.getBoolean("is_owner");
 
-                    uiHandler.post(() -> OnResponse(tag, "Is Admin: " + isAdmin + ", Is Owner: " + isOwner));
+                    uiHandler.post(() -> Response(tag, "Is Admin: " + isAdmin + ", Is Owner: " + isOwner));
                 } else {
-                    uiHandler.post(() -> OnError(tag, "Failed to check admin/owner status. Response Code: " + responseCode));
+                    uiHandler.post(
+                            () -> Error(tag, "Failed to check admin/owner status. Response Code: " + responseCode));
                 }
             } catch (Exception e) {
-                uiHandler.post(() -> OnError(tag, "Error: " + e.getMessage()));
+                uiHandler.post(() -> Error(tag, "Error: " + e.getMessage()));
             }
         }).start();
     }
@@ -102,7 +107,7 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                 URL url = new URL(BASE_URL + "/guilds/" + guildId + "/members/" + userId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("DELETE");
-                conn.setRequestProperty("Authorization", "Bot " + botToken);
+                conn.setRequestProperty("Authorization", "Bot " + tokenManager.getBotToken(form.getApplicationContext()));
                 conn.setRequestProperty("Content-Type", "application/json");
 
                 if (reason != null && !reason.isEmpty()) {
@@ -116,12 +121,12 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
 
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 204) {
-                    uiHandler.post(() -> OnResponse(tag, "User kicked successfully."));
+                    uiHandler.post(() -> Response(tag, "User kicked successfully."));
                 } else {
-                    uiHandler.post(() -> OnError(tag, "Failed to kick user. Response Code: " + responseCode));
+                    uiHandler.post(() -> Error(tag, "Failed to kick user. Response Code: " + responseCode));
                 }
             } catch (Exception e) {
-                uiHandler.post(() -> OnError(tag, "Error: " + e.getMessage()));
+                uiHandler.post(() -> Error(tag, "Error: " + e.getMessage()));
             }
         }).start();
     }
@@ -133,7 +138,7 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                 URL url = new URL(BASE_URL + "/guilds/" + guildId + "/bans/" + userId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("PUT");
-                conn.setRequestProperty("Authorization", "Bot " + botToken);
+                conn.setRequestProperty("Authorization", "Bot " + tokenManager.getBotToken(form.getApplicationContext()));
                 conn.setRequestProperty("Content-Type", "application/json");
 
                 JSONObject json = new JSONObject();
@@ -149,12 +154,12 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
 
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 204) {
-                    uiHandler.post(() -> OnResponse(tag, "User banned successfully."));
+                    uiHandler.post(() -> Response(tag, "User banned successfully."));
                 } else {
-                    uiHandler.post(() -> OnError(tag, "Failed to ban user. Response Code: " + responseCode));
+                    uiHandler.post(() -> Error(tag, "Failed to ban user. Response Code: " + responseCode));
                 }
             } catch (Exception e) {
-                uiHandler.post(() -> OnError(tag, "Error: " + e.getMessage()));
+                uiHandler.post(() -> Error(tag, "Error: " + e.getMessage()));
             }
         }).start();
     }
@@ -166,16 +171,16 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
                 URL url = new URL(BASE_URL + "/guilds/" + guildId + "/bans/" + userId);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("DELETE");
-                conn.setRequestProperty("Authorization", "Bot " + botToken);
+                conn.setRequestProperty("Authorization", "Bot " + tokenManager.getBotToken(form.getApplicationContext()));
 
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 204) {
-                    uiHandler.post(() -> OnResponse(tag, "User unbanned successfully."));
+                    uiHandler.post(() -> Response(tag, "User unbanned successfully."));
                 } else {
-                    uiHandler.post(() -> OnError(tag, "Failed to unban user. Response Code: " + responseCode));
+                    uiHandler.post(() -> Error(tag, "Failed to unban user. Response Code: " + responseCode));
                 }
             } catch (Exception e) {
-                uiHandler.post(() -> OnError(tag, "Error: " + e.getMessage()));
+                uiHandler.post(() -> Error(tag, "Error: " + e.getMessage()));
             }
         }).start();
     }
@@ -187,13 +192,12 @@ public class DiscordModeration extends AndroidNonvisibleComponent {
     }
 
     @SimpleEvent(description = "Triggered when a successful response is received.")
-    public void OnResponse(String tag, String response) {
-        EventDispatcher.dispatchEvent(this, "OnResponse", tag, response);
+    public void Response(String tag, String response) {
+        EventDispatcher.dispatchEvent(this, "Response", tag, response);
     }
 
     @SimpleEvent(description = "Triggered when an error occurs.")
-    public void OnError(String tag, String error) {
-        EventDispatcher.dispatchEvent(this, "OnError", tag, error);
+    public void Error(String tag, String error) {
+        EventDispatcher.dispatchEvent(this, "Error", tag, error);
     }
 }
-
