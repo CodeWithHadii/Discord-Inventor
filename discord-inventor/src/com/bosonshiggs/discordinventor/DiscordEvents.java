@@ -11,19 +11,31 @@ import java.util.concurrent.LinkedBlockingQueue;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.Iterator;
+
 import com.google.appinventor.components.annotations.DesignerComponent;
 import com.google.appinventor.components.annotations.DesignerProperty;
 import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
+import com.google.appinventor.components.annotations.PropertyCategory;
+
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.EventDispatcher;
 import com.google.appinventor.components.runtime.util.YailList;
+import com.google.appinventor.components.runtime.util.YailDictionary;
+
+import com.google.appinventor.components.common.PropertyTypeConstants;
+import com.google.appinventor.components.runtime.util.YailDictionary;
 
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 @DesignerComponent(
     version = 1, 
@@ -33,6 +45,7 @@ import org.json.JSONObject;
 )
 public class DiscordEvents extends AndroidNonvisibleComponent {
     private WebSocketClient webSocketClient;
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private String botToken;
     private final String GATEWAY_URL = "wss://gateway.discord.gg/?v=10&encoding=json";
@@ -50,15 +63,19 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
      * 
      * @param token The Discord Bot Token.
      */
-    @DesignerProperty(editorType = "string", defaultValue = "")
-    @SimpleProperty(description = "Sets the Discord Bot Token for authentication.")
-    public void BotToken(String token) {
-        this.botToken = token;
-        new TokenManager().setBotToken(form.getApplicationContext(), token);
-    }
+    @DesignerProperty(
+		editorType = PropertyTypeConstants.PROPERTY_TYPE_STRING,
+		defaultValue = ""
+	)
+	@SimpleProperty
+	public void BotToken(String token) {
+		this.botToken = token;
+		new TokenManager().setBotToken(form.getApplicationContext(), token);
+	}
 
-    @SimpleProperty(description = "Returns the bot token.")
-    public String GetBotToken() {
+    @SimpleProperty(description = "Returns the bot token.",
+    				category = PropertyCategory.BEHAVIOR)
+    public String BotToken() {
         return botToken;
     }
 
@@ -68,63 +85,66 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
      * @param tag A custom tag to identify the response.
      */
     @SimpleFunction(description = "Starts monitoring Discord channels in real-time.")
-    public void StartMonitoring(String tag) {
-        try {
-            URI gatewayUri = new URI(GATEWAY_URL);
-            webSocketClient = new WebSocketClient(gatewayUri) {
-                @Override
-                public void onOpen(ServerHandshake handshake) {
-                    uiHandler.post(() -> Response(tag, "Connected to Discord Gateway"));
-                    sendIdentifyPayload();
-                }
+	public void StartMonitoring(String tag) {
+		new Thread(() -> {
+		    try {
+		        URI gatewayUri = new URI(GATEWAY_URL);
+		        webSocketClient = new WebSocketClient(gatewayUri) {
+		            @Override
+		            public void onOpen(ServerHandshake handshake) {
+		                uiHandler.post(() -> Response(tag, "Connected to Discord Gateway"));
+		                sendIdentifyPayload();
+		            }
 
-                @Override
-                public void onMessage(String message) {
-                    try {
-                        JSONObject json = new JSONObject(message);
-                        int opCode = json.optInt("op");
+		            @Override
+		            public void onMessage(String message) {
+		                try {
+		                    JSONObject json = new JSONObject(message);
+		                    int opCode = json.optInt("op");
 
-                        if (opCode == 10) { // HELLO opcode - Start heartbeat
-                            int heartbeatInterval = json.getJSONObject("d").optInt("heartbeat_interval");
-                            startHeartbeat(heartbeatInterval);
-                            startEventProcessing(); // Inicia processamento controlado
-                        }
+		                    if (opCode == 10) { // HELLO opcode - Start heartbeat
+		                        int heartbeatInterval = json.getJSONObject("d").optInt("heartbeat_interval");
+		                        startHeartbeat(heartbeatInterval);
+		                        startEventProcessing(); // Inicia processamento controlado
+		                    }
 
-                        String eventType = json.optString("t");
+		                    String eventType = json.optString("t");
 
-                        // Ignorar o evento PRESENCE_UPDATE
-                        if (eventType.equals("PRESENCE_UPDATE")) {
-                            return; // Não processa o evento
-                        }
+		                    // Ignorar o evento PRESENCE_UPDATE
+		                    if (eventType.equals("PRESENCE_UPDATE")) {
+		                        return; // Não processa o evento
+		                    }
 
-                        JSONObject data = json.optJSONObject("d");
-                        if (data != null) {
-                            addEventToQueue(eventType, data); // Adiciona evento à fila
-                        }
+		                    JSONObject data = json.optJSONObject("d");
+		                    if (data != null) {
+		                        addEventToQueue(eventType, data); // Adiciona evento à fila
+		                    }
 
-                    } catch (Exception e) {
-                        uiHandler.post(() -> Error("PARSE_ERROR", e.getMessage()));
-                    }
-                }
+		                } catch (Exception e) {
+		                    uiHandler.post(() -> Error("PARSE_ERROR", e.getMessage()));
+		                }
+		            }
 
-                @Override
-                public void onClose(int code, String reason, boolean remote) {
-                    uiHandler.post(() -> Response(tag, "Connection closed: " + reason));
-                    reconnectWebSocket(tag);
-                }
+		            @Override
+		            public void onClose(int code, String reason, boolean remote) {
+		                uiHandler.post(() -> Response(tag, "Connection closed: " + reason));
+		                reconnectWebSocket(tag);
+		            }
 
-                @Override
-                public void onError(Exception ex) {
-                    uiHandler.post(() -> Error(tag, ex.getMessage()));
-                    reconnectWebSocket(tag);
-                }
-            };
+		            @Override
+		            public void onError(Exception ex) {
+		                uiHandler.post(() -> Error(tag, ex.getMessage()));
+		                reconnectWebSocket(tag);
+		            }
+		        };
 
-            webSocketClient.connect();
-        } catch (Exception e) {
-            Error(tag, e.getMessage());
-        }
-    }
+		        webSocketClient.connect();
+		    } catch (Exception e) {
+		        uiHandler.post(() -> Error(tag, e.getMessage()));
+		    }
+		}).start();
+	}
+
 
     /**
      * Parses event information into a YailList.
@@ -134,22 +154,46 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
      * @return A YailList with event details.
      */
     private YailList parseEventInfo(String eventType, JSONObject data) {
-        List<String> eventInfo = new ArrayList<>();
-        try {
-            eventInfo.add("eventType: " + eventType);
-            eventInfo.add("content: " + data.optString("content", "N/A"));
-            eventInfo.add("messageId: " + data.optString("id", "N/A"));
-            eventInfo.add("channelId: " + data.optString("channel_id", "N/A"));
-            eventInfo.add("serverId: " + data.optString("guild_id", "N/A"));
-            eventInfo.add(
-                    "userId: " + (data.has("author") ? data.getJSONObject("author").optString("id", "N/A") : "N/A"));
-            eventInfo.add("username: "
-                    + (data.has("author") ? data.getJSONObject("author").optString("username", "N/A") : "N/A"));
-        } catch (Exception e) {
-            eventInfo.add("error: " + e.getMessage());
-        }
-        return YailList.makeList(eventInfo);
-    }
+		List<String> eventInfo = new ArrayList<>();
+		try {
+		    eventInfo.add(eventType);
+		    eventInfo.add(data.toString()); // Retorna todo o conteúdo da API como uma string JSON.
+		} catch (Exception e) {
+		    eventInfo.add("error: " + e.getMessage());
+		}
+		return YailList.makeList(eventInfo);
+	}
+
+
+
+	private JSONObject getGuildContents(JSONObject data) {
+		JSONObject guildContents = new JSONObject();
+		try {
+		    guildContents.put("guildId", data.optString("id", "N/A"));
+		    guildContents.put("guildName", data.optString("name", "N/A"));
+
+		    // Adicionar canais da guilda
+		    if (data.has("channels")) {
+		        guildContents.put("channels", data.getJSONArray("channels"));
+		    }
+
+		    // Adicionar membros da guilda
+		    if (data.has("members")) {
+		        guildContents.put("members", data.getJSONArray("members"));
+		    }
+
+		    // Adicionar roles da guilda
+		    if (data.has("roles")) {
+		        guildContents.put("roles", data.getJSONArray("roles"));
+		    }
+		} catch (Exception e) {
+		    try {
+		        guildContents.put("error", e.getMessage());
+		    } catch (Exception ignored) {}
+		}
+		return guildContents;
+	}
+
 
     /**
      * Starts the heartbeat timer to maintain the connection.
@@ -228,6 +272,37 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
             uiHandler.post(() -> Error("IDENTIFY", e.getMessage()));
         }
     }
+    
+    @SimpleFunction(description = "Converts a JSON-formatted string into a YailDictionary.")
+	public YailDictionary ParseJsonString(String jsonString) {
+		try {
+		    // Convert string to JSONObject
+		    JSONObject jsonObject = new JSONObject(jsonString);
+
+		    // Convert JSONObject to YailDictionary
+		    YailDictionary yailDict = new YailDictionary();
+
+		    // Iterate through keys using keys() method and ensuring String type
+		    Iterator<?> keys = jsonObject.keys();
+		    while (keys.hasNext()) {
+		        String key = keys.next().toString();
+		        Object value = jsonObject.get(key);
+
+		        // If the value is a JSONObject, convert it recursively
+		        if (value instanceof JSONObject) {
+		            value = ParseJsonString(value.toString());
+		        }
+		        yailDict.put(key, value);
+		    }
+		    return yailDict;
+
+		} catch (JSONException e) {
+		    // Return a YailDictionary with error details
+		    YailDictionary errorDict = new YailDictionary();
+		    errorDict.put("error", e.getMessage());
+		    return errorDict;
+		}
+	}
 
     /**
      * Event triggered for any Discord event.
@@ -276,21 +351,17 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
 
     // Inicia o processamento da fila com intervalo de 1 segundo (pode ser ajustado)
     private void startEventProcessing() {
-        if (eventTimer != null) {
-            eventTimer.cancel();
-        }
-
-        eventTimer = new Timer();
-        eventTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                JSONObject event = eventQueue.poll();
-                if (event != null) {
-                    processEvent(event);
-                }
-            }
-        }, 0, 1000); // Delay mínimo de 1 segundo entre eventos
-    }
+		executor.scheduleAtFixedRate(() -> {
+		    try {
+		        JSONObject event = eventQueue.poll();
+		        if (event != null) {
+		            processEvent(event);
+		        }
+		    } catch (Exception e) {
+		        uiHandler.post(() -> Error("EVENT_PROCESSING", e.getMessage()));
+		    }
+		}, 0, 1, TimeUnit.SECONDS); // Ajuste o intervalo conforme necessário
+	}
 
     private void processEvent(JSONObject event) {
         try {
@@ -299,7 +370,12 @@ public class DiscordEvents extends AndroidNonvisibleComponent {
 
             if (data != null && !eventType.equals("PRESENCE_UPDATE")) { // Filtra PRESENCE_UPDATE
                 YailList eventInfoList = parseEventInfo(eventType, data);
-                uiHandler.post(() -> DiscordEvent(eventType, eventInfoList));
+                uiHandler.post(() -> {
+					if (!eventInfoList.isEmpty()) {
+						DiscordEvent(eventType, eventInfoList);
+					}
+				});
+
             }
         } catch (Exception e) {
             uiHandler.post(() -> Error("EVENT_PROCESSING", e.getMessage()));

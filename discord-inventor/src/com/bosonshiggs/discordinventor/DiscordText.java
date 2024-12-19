@@ -17,6 +17,7 @@ import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.EventDispatcher;
 
+
 @DesignerComponent(
 	version = 1, 
 	description = "Discord Bot Message Extension - Allows sending, editing, deleting, and monitoring messages on Discord.", 
@@ -25,13 +26,20 @@ import com.google.appinventor.components.runtime.EventDispatcher;
 )
 public class DiscordText extends AndroidNonvisibleComponent {
 	private final TokenManager tokenManager;
+	private DiscordRequestHelper requestHelper;
+	
 	private final String BASE_URL = "https://discord.com/api/v10";
 	private final Handler uiHandler = new Handler(Looper.getMainLooper());
 	private final HashMap<String, Long> cooldowns = new HashMap<>();
-
+	
 	public DiscordText(ComponentContainer container) {
 		super(container.$form());
 		tokenManager = new TokenManager();
+		requestHelper = new DiscordRequestHelper(
+		    tokenManager,
+		    new Handler(Looper.getMainLooper()), // Handler
+		    form.getApplicationContext()        // Context
+		);
 	}
 
 	private boolean isOnCooldown(String command, int cooldownSeconds, String tag) {
@@ -52,7 +60,23 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("SendMessage", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/messages", "POST", tag, content, guildId);
+		requestHelper.makeRequest(
+			"/channels/" + channelId + "/messages", 
+			"POST", 
+			tag, 
+			content, 
+			guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Edits an existing message in the specified channel within the given server.")
@@ -61,7 +85,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("EditMessage", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/messages/" + messageId, "PATCH", tag, newContent, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/messages/" + messageId, "PATCH", tag, newContent, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Deletes a message from the specified channel in the given server.")
@@ -69,7 +104,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("DeleteMessage", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/messages/" + messageId, "DELETE", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/messages/" + messageId, "DELETE", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Pins a message in the specified Discord channel.")
@@ -77,7 +123,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("PinMessage", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/pins/" + messageId, "PUT", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/pins/" + messageId, "PUT", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Unpins a message in the specified Discord channel.")
@@ -85,7 +142,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("UnpinMessage", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/pins/" + messageId, "DELETE", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/pins/" + messageId, "DELETE", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Fetches messages from a specified Discord channel.")
@@ -93,7 +161,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("GetMessages", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/messages?limit=" + limit, "GET", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/messages?limit=" + limit, "GET", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Creates a thread in a Discord channel with a specified message.")
@@ -108,8 +187,19 @@ public class DiscordText extends AndroidNonvisibleComponent {
 				json.put("name", threadName);
 				json.put("auto_archive_duration", autoArchiveDuration);
 
-				makeRequestWithBody("/channels/" + channelId + "/messages/" + messageId + "/threads", "POST", tag,
-						json.toString(), guildId);
+				requestHelper.makeRequestWithBody("/channels/" + channelId + "/messages/" + messageId + "/threads", "POST", tag,
+						json.toString(), guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 			} catch (Exception e) {
 				uiHandler.post(() -> Error(tag, "Error creating thread: " + e.getMessage()));
 			}
@@ -131,7 +221,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 				if (autoArchiveDuration > 0) {
 					json.put("auto_archive_duration", autoArchiveDuration);
 				}
-				makeRequestWithBody("/channels/" + threadId, "PATCH", tag, json.toString(), guildId);
+				requestHelper.makeRequestWithBody("/channels/" + threadId, "PATCH", tag, json.toString(), guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 			} catch (Exception e) {
 				uiHandler.post(() -> Error(tag, "Error updating thread: " + e.getMessage()));
 			}
@@ -143,7 +244,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("DeleteThread", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + threadId, "DELETE", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + threadId, "DELETE", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Adds a user to a thread in a Discord channel.")
@@ -151,7 +263,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("AddUserToThread", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + threadId + "/thread-members/" + userId, "PUT", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + threadId + "/thread-members/" + userId, "PUT", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Removes a user from a thread in a Discord channel.")
@@ -159,7 +282,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("RemoveUserFromThread", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + threadId + "/thread-members/" + userId, "DELETE", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + threadId + "/thread-members/" + userId, "DELETE", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	@SimpleFunction(description = "Gets a list of all active threads in a specified Discord channel.")
@@ -167,7 +301,18 @@ public class DiscordText extends AndroidNonvisibleComponent {
 		if (isOnCooldown("ListActiveThreads", cooldownSeconds, tag)) {
 			return;
 		}
-		makeRequest("/channels/" + channelId + "/threads/active", "GET", tag, null, guildId);
+		requestHelper.makeRequest("/channels/" + channelId + "/threads/active", "GET", tag, null, guildId,
+			new DiscordRequestHelper.Callback() {
+				@Override
+				public void onResponse(String tag, String response) {
+				    Response(tag, response); // Chama o método Response da extensão
+				}
+
+				@Override
+				public void onError(String tag, String error) {
+				    Error(tag, error); // Chama o método Error da extensão
+				}
+			});
 	}
 
 	/* Events */
